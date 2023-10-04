@@ -1,0 +1,6 @@
+data/
+output/
+runs/
+results/
+save_model/
+__pycache__/
