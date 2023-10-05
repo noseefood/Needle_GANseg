@@ -36,6 +36,8 @@ class SegmentationDataset(object):
                     A.HorizontalFlip(p=0.3),
                     A.VerticalFlip(p=0.3),
                     A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
+                    A.GaussNoise(p=0.2),
+                    A.GaussianBlur(p=0.2),
                 ])
 
     def __len__(self):

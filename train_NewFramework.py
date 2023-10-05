@@ -12,6 +12,7 @@ import argparse
 import os
 import torch
 import torchvision
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
@@ -23,10 +24,19 @@ from model.Discriminator import Discriminator
 import numpy as np
 import monai
 
+from monai.transforms import (
+    Activations,
+    AsDiscrete,
+    Compose,
+)
+
 import contextual_loss as cl
 
 torch.manual_seed(777)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+
 
 def train_loops(args, dataset, generator, discriminator, 
                 optim_G, optim_D, loss_adv, loss_seg, metric_val):
@@ -41,11 +51,14 @@ def train_loops(args, dataset, generator, discriminator,
     # define tensorboard writer
     writer = SummaryWriter() 
     batch_num = 0 
-    
-    trafos = torchvision.transforms.Compose([
-        torchvision.transforms.Grayscale(num_output_channels=3),
-        torchvision.transforms.ToTensor(), 
-    ])
+
+    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4').to(device) 
+
+    args_dict = args.__dict__
+    print(args_dict)
+    writer.add_hparams(args_dict, {})
+
+    tf = Compose([Activations(sigmoid=True)])
 
     # train loop
     for epoch in range(args.epoch):
@@ -68,21 +81,24 @@ def train_loops(args, dataset, generator, discriminator,
             optim_G.zero_grad()
 
             g_output = generator(img) 
-
-            # Loss measures generator's ability to fool the discriminator
-            loss_adv_ = loss_adv(discriminator(g_output), valid)
+            # g_output = F.sigmoid(g_output) # 
+            # print("g_output", g_output.shape) # ([8, 1, 256, 256])
 
             # Loss measures generator's ability to generate seg mask
-            loss_seg_ = loss_seg(g_output, mask) # 
-            # g_loss = args.lambda_adv * loss_adv_ * gamma  + args.lambda_seg * loss_seg_  
+            # loss_seg_ = loss_seg(input=g_output, target=mask) # 
+            # print(metric_val(y_pred=g_output, y=mask)) (tensor([0.0432], device='cuda:0'), tensor([8.], device='cuda:0'))
+            # loss_seg_ = 1 - metric_val(y_pred=g_output, y=mask)[0]
+            loss_seg_ = loss_seg(input=g_output, target=mask) # focal loss自带sigmoid
 
+            g_output_norm = tf(g_output) # ([8, 1, 256, 256])
+            # Loss measures generator's ability to fool the discriminator
+            loss_adv_ = loss_adv(discriminator(g_output_norm), valid)
             # contextual loss, VCG16 need 3 channels
-            pred_3C = torch.cat((g_output, g_output, g_output), dim=1)
+            pred_3C = torch.cat((g_output_norm, g_output_norm, g_output_norm), dim=1)
             mask_3C = torch.cat((mask, mask, mask), dim=1)
-            criterion = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4').to(device) 
-            loss_con = criterion(pred_3C, mask_3C)
+            loss_con = Context_crit(pred_3C, mask_3C)
 
-            g_loss = 0.2 * loss_adv_  +  0.5 * loss_seg_ + 0.3 * loss_con
+            g_loss = args.adv_ratio * loss_adv_  +  args.seg_ratio * loss_seg_ + args.con_ratio * loss_con
 
             g_loss.backward()
             optim_G.step()
@@ -97,7 +113,7 @@ def train_loops(args, dataset, generator, discriminator,
             optim_D.zero_grad()
 
             real_loss = loss_adv(discriminator(mask), valid) # 能不能区分出真实的mask 二分类交叉熵 BCELoss
-            fake_loss = loss_adv(discriminator(g_output.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
+            fake_loss = loss_adv(discriminator(g_output_norm.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
             d_loss = (real_loss + fake_loss) / 2
 
             # d_loss.backward(retain_graph=True)
@@ -156,7 +172,6 @@ def train_loops(args, dataset, generator, discriminator,
             #     gamma += 0.01
             #     print("Current gamma: ", gamma)
             #     writer.add_scalar("Current gamma decay", gamma, epoch * len(dataloader_train) + i_batch)
-        
 
         # final model save
         if epoch == args.epoch - 1:
@@ -170,9 +185,9 @@ parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learn
 parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='6e-4', help='learning rate')
+parser.add_argument('--lrG', type=float, default='4e-4', help='learning rate')
 parser.add_argument('--lrD', type=float, default='1e-4', help='learning rate') # 
-parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop or Adam')
+parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
 parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
@@ -180,6 +195,10 @@ parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
 
 parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
+
+parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss")
+parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss")
+parser.add_argument("--con_ratio", type=float, default=1, help="Ratio of contextual loss in generator loss")
 
 args = parser.parse_args()
 print('args', args)
@@ -205,9 +224,11 @@ elif args.optimizer == "SGD":
 # define loss
 loss_adv = torch.nn.BCELoss().to(device) # GAN adverserial loss
 # loss_seg = torch.nn.MSELoss().to(device) # 基本的分割loss
-metric_val = monai.metrics.DiceHelper(sigmoid=True) # DICE score for validation of generator 最终输出的时候也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
-loss_seg = monai.losses.DiceLoss(sigmoid=True).to(device)   # DICE loss, sigmoid参数会让输出的值最后经过sigmoid函数,(input,target)
-# loss_seg = torch.nn.BCEWithLogitsLoss().cuda() # BECWithLogitsLoss即是把最后的sigmoid和BCELoss合成一步，效果是一样的
-# loss_seg =  monai.losses.FocalLoss().to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
+metric_val = monai.metrics.DiceHelper(sigmoid=True)  # DICE score for validation of generator 最终输出的时候也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
+# loss_seg = monai.losses.dice.DiceLoss(sigmoid=False)   # DICE loss, sigmoid参数会让输出的值最后经过sigmoid函数,(input,target)
+# loss_seg = monai.losses.Dice(sigmoid=True) 
+# 在BCEWithLogitsLoss这个函数中，拿到output首先会做一个sigmoid操作，再进行二进制交叉熵计算
+# loss_seg = torch.nn.BCEWithLogitsLoss() # BECWithLogitsLoss即是把最后的sigmoid和BCELoss合成一步，效果是一样的
+loss_seg =  monai.losses.FocalLoss().to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
 
 train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
