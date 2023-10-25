@@ -1,5 +1,5 @@
 from collections import namedtuple
-
+import torchvision
 import torch.nn as nn
 import torchvision.models.vgg as vgg
 
@@ -7,7 +7,7 @@ import torchvision.models.vgg as vgg
 class VGG19(nn.Module):
     def __init__(self, requires_grad=False):
         super(VGG19, self).__init__()
-        vgg_pretrained_features = vgg.vgg19(pretrained=True).features
+        vgg_pretrained_features = vgg.vgg19(weights=torchvision.models.VGG19_Weights.IMAGENET1K_V1).features
         self.slice1 = nn.Sequential()
         self.slice2 = nn.Sequential()
         self.slice3 = nn.Sequential()

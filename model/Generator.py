@@ -25,7 +25,7 @@ class Generator(nn.Module):
         features = init_features
         
         self.encode_layer1 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=in_features, out_channels=features, kernel_size=3, padding=1, stride=1),  # (512-3+2)/1+1=512 keep size
+            torch.nn.Conv2d(in_channels=in_features, out_channels=features, kernel_size=3, padding=1, stride=1),  # (512-3+2)/1+1=512 keep size ((N+2P-K)/S)+1, ((N+2P-F)/S)向下取整
             torch.nn.BatchNorm2d(num_features=features),
             ReLU,
         )
@@ -39,9 +39,9 @@ class Generator(nn.Module):
         self.encode_layer1_half = torch.nn.Sequential(  # 
             torch.nn.Conv2d(in_channels=features,
                             out_channels=features,
-                            kernel_size=3,
-                            padding=1,
-                            stride=1),
+                            kernel_size=3, # 一般为奇数,最好还是3,经典参数
+                            padding=1, # 一般为kernel_size-1,可以保证size
+                            stride=1), # 一般为1,保证size;放大时为2可以有效减少图片的size
             torch.nn.BatchNorm2d(num_features=features),
             ReLU,
             )

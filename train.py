@@ -7,7 +7,7 @@
 @Version :   1.0
 @Contact :   xuesosng.li@tum.de
 '''
-
+import json
 import argparse
 import os
 import torch
@@ -43,16 +43,19 @@ def train_loops(args, dataset, generator, discriminator,
     # split train and val dataset
     length =  dataset.num_of_samples()
     train_size = int(0.8 * length) 
-    train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)])
+    train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)]) # manual_seed fixed
 
     dataloader_train = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, pin_memory=torch.cuda.is_available())
     dataloader_val = DataLoader(validate_set, batch_size=args.batch_size, shuffle=False, pin_memory=torch.cuda.is_available())
 
     # define tensorboard writer
-    writer = SummaryWriter() 
+    writer = SummaryWriter()
     batch_num = 0 
 
-    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4').to(device) 
+    '''lower band_width value would make the similarity function sharper, making the loss more sensitive 
+    to differences between features. In contrast, a higher band_width value would make the similarity function 
+    smoother, making the loss less sensitive to differences between features.'''
+    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.3).to(device) 
 
     args_dict = args.__dict__
     print(args_dict)
@@ -113,6 +116,7 @@ def train_loops(args, dataset, generator, discriminator,
             optim_D.zero_grad()
 
             real_loss = loss_adv(discriminator(mask), valid) # 能不能区分出真实的mask 二分类交叉熵 BCELoss
+            # detach()很重要，因为generator的梯度不需要传到discriminator!
             fake_loss = loss_adv(discriminator(g_output_norm.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
             d_loss = (real_loss + fake_loss) / 2
 
@@ -130,11 +134,11 @@ def train_loops(args, dataset, generator, discriminator,
             writer.add_scalar('G_loss', g_loss.item(), epoch * len(dataloader_train) + i_batch)
 
             if batch_num % 150 == 0:
-                img_grid = torchvision.utils.make_grid(img, nrow=3, padding=2, normalize=False, range=None, scale_each=False, pad_value=0)
+                img_grid = torchvision.utils.make_grid(img, nrow=3, padding=2, normalize=False, value_range=None, scale_each=False, pad_value=0)
                 writer.add_images('input', img_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
-                mask_grid = torchvision.utils.make_grid(mask, nrow=3, padding=2, normalize=False, range=None, scale_each=False, pad_value=0)
+                mask_grid = torchvision.utils.make_grid(mask, nrow=3, padding=2, normalize=False, value_range=None, scale_each=False, pad_value=0)
                 writer.add_images('mask', mask_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
-                g_output_grid = torchvision.utils.make_grid(g_output, nrow=3, padding=2, normalize=False, range=None, scale_each=False, pad_value=0)
+                g_output_grid = torchvision.utils.make_grid(g_output, nrow=3, padding=2, normalize=False, value_range=None, scale_each=False, pad_value=0)
                 writer.add_images('output', g_output_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
 
 
@@ -144,7 +148,7 @@ def train_loops(args, dataset, generator, discriminator,
                 torch.save(generator.state_dict(), './save_model/save_G_Exp/generator_'+ str(batch_num) +'.pth')
                 print("saved current metric model in ", batch_num)
 
-            # validation of generator
+            ########## validation of generator ##########
             if batch_num % (args.val_batch) == 0:
 
                 generator.eval()
@@ -185,10 +189,10 @@ parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learn
 parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='4e-4', help='learning rate')
-parser.add_argument('--lrD', type=float, default='1e-4', help='learning rate') # 
+parser.add_argument('--lrG', type=float, default='3e-4', help='learning rate')
+parser.add_argument('--lrD', type=float, default='2e-4', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
-parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
+parser.add_argument('--batch_size', type=int, default='16', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
@@ -196,14 +200,18 @@ parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
 parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss")
-parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss")
-parser.add_argument("--con_ratio", type=float, default=1, help="Ratio of contextual loss in generator loss")
+parser.add_argument("--adv_ratio", type=float, default=0.1, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
+parser.add_argument("--con_ratio", type=float, default=0.3, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
 
 os.makedirs('./save_model/save_G_Exp', exist_ok=True)
+
+with open('./save_model/save_G_Exp/args.txt', 'w') as f:
+    json.dump(args.__dict__, f, indent=2)
+
 
 dataset = SegmentationDataset(args.image_dir, args.mask_dir) 
 
@@ -229,6 +237,6 @@ metric_val = monai.metrics.DiceHelper(sigmoid=True)  # DICE score for validation
 # loss_seg = monai.losses.Dice(sigmoid=True) 
 # 在BCEWithLogitsLoss这个函数中，拿到output首先会做一个sigmoid操作，再进行二进制交叉熵计算
 # loss_seg = torch.nn.BCEWithLogitsLoss() # BECWithLogitsLoss即是把最后的sigmoid和BCELoss合成一步，效果是一样的
-loss_seg =  monai.losses.FocalLoss().to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
-
+loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
+#!!!!!!!!!!!!!1 FocalLoss的参数不要用默认值(alpha=0.2)，否则根本无法训练
 train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
