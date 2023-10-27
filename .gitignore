@@ -5,3 +5,5 @@ results/
 save_model/
 __pycache__/
 documents/
+*.db
+*.txt
