@@ -6,6 +6,8 @@ based on optuna AutoML framework
 import json
 import argparse
 import os
+import logging
+import sys
 import numpy as np
 from tqdm import tqdm
 
@@ -39,6 +41,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def objective(trial):
     ''' Objective function for AutoML, trial is the hyperparameter needed to be tuned '''
+
     # other hyperparameters that are not tuned
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/imgs', help='input RGB or Gray image path')
@@ -46,15 +49,24 @@ def objective(trial):
     parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--epoch", type=int, default=1, help="epoch in training")
-    parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
-    parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
+    parser.add_argument("--epoch", type=int, default=1, help="maximal epoch in training for every trial")
+    # parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
+    # parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
     args = parser.parse_args()
 
     # hyperparameters that are tuned
     batch_size = trial.suggest_int("batch_size", 4, 16,step=4)
+
     lr_G = trial.suggest_float("lr_G", 5e-4, 1e-2, log=True) 
+    print("Original lr_G", lr_G)
     lr_D = trial.suggest_float("lr_D", 1e-5, 1e-3, log=True) 
+    print("Original lr_D", lr_D)
+    while lr_G < lr_D:
+        lr_G = trial.suggest_float("lr_G", 5e-4, 1e-2, log=True) 
+        lr_D = trial.suggest_float("lr_D", 1e-5, 1e-3, log=True)
+        print("final lr_G", lr_G)
+        print("fianl lr_D", lr_D)
+
     adv_ratio = trial.suggest_float("adv_ratio", 0.1, 0.5, step=0.1)
     seg_ratio = trial.suggest_float("seg_ratio", 0.7, 1.0, step=0.1)
     con_ratio = trial.suggest_float("con_ratio", 0.1, 0.5, step=0.1)
@@ -151,21 +163,26 @@ def objective(trial):
                 val_scores.append(dice_cof.cpu().numpy())
 
         metric = np.mean(val_scores)
-        print("mean dice score: ", metric)
-        trial.report(metric, epoch)
+        # print("mean dice score: ", metric)
+        
+        # for optuna pruner need
+        trial.report(metric, epoch) 
+        if trial.should_prune():
+            raise optuna.TrialPruned()
 
-        return metric
+        return metric 
 
 
 if __name__ == "__main__":
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=2) # n_trials: number of trials from different hyperparameters
+    # optuna search default using TPESampler
+    # Only after some trials have been completed, Optuna uses the TPE algorithm to prune unpromising trials.
+    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+    study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner()) # optuna的搜索过程其实也可以通过指定随机种子来固定,但我们这里没有必要
+    study.optimize(objective, n_trials=10) # n_trials: number of trials from different hyperparameters
 
     print("Best trial:")
     trial = study.best_trial
-
     print("  Value: ", trial.value)
-
     print("  Params: ")
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
