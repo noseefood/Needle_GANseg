@@ -9,7 +9,9 @@ import os
 import logging
 import sys
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
+# from tqdm import tqdm_notebook as tqdm  # for colab
+from tqdm.notebook import trange, tqdm
 
 import torch
 import torchvision
@@ -95,7 +97,7 @@ def objective(trial):
     for epoch in range(args.epoch): # epoch会始终保持0,因为optuna内核
 
         len_minibatch = dataloader_train.__len__()
-        pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial')
+        pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial') 
         
         for i_batch, sample_batched in enumerate(dataloader_train):  # i_batch: steps
             

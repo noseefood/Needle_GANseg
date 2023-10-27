@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 '''
 based on optuna AutoML framework
+include checkpoint and early stopping
 '''
 import json
 import argparse
@@ -49,7 +50,7 @@ def objective(trial):
     parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--epoch", type=int, default=2, help="maximal epoch in training for every trial")
+    parser.add_argument("--epoch", type=int, default=4, help="maximal epoch in training for every trial")
     # parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
     # parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
     args = parser.parse_args()
@@ -178,7 +179,8 @@ if __name__ == "__main__":
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
     study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(),
                                 study_name="SegGAN", storage=storage_name, load_if_exists=True) # optuna的搜索过程其实也可以通过指定随机种子来固定,但我们这里没有必要
-    study.optimize(objective, n_trials=10) # n_trials: number of trials from different hyperparameters
+    study.optimize(objective, n_trials=100) # n_trials: number of trials from different hyperparameters
+    # 断点之后即使到达到最大n_trials,调大就可以继续搜索
 
     print("Best trial:")
     trial = study.best_trial
