@@ -5,5 +5,6 @@ results/
 save_model/
 __pycache__/
 documents/
+analysis/
 *.db
 *.txt

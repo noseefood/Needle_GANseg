@@ -189,10 +189,10 @@ parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learn
 parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='3e-4', help='learning rate')
-parser.add_argument('--lrD', type=float, default='2e-4', help='learning rate') # 
+parser.add_argument('--lrG', type=float, default='0.0008974078986823011', help='learning rate')
+parser.add_argument('--lrD', type=float, default='0.0003082565836123219', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
-parser.add_argument('--batch_size', type=int, default='16', help='batch_size in training')
+parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
@@ -202,7 +202,7 @@ parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch
 
 parser.add_argument("--adv_ratio", type=float, default=0.1, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.3, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.1, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
