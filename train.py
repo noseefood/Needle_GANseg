@@ -103,6 +103,7 @@ def train_loops(args, dataset, generator, discriminator,
 
             g_loss = args.adv_ratio * loss_adv_  +  args.seg_ratio * loss_seg_ + args.con_ratio * loss_con
 
+            # g_loss.backward(retain_graph=True) # 详见 https://blog.csdn.net/qxqsunshine/article/details/82973979
             g_loss.backward()
             optim_G.step()
 
@@ -120,7 +121,7 @@ def train_loops(args, dataset, generator, discriminator,
             fake_loss = loss_adv(discriminator(g_output_norm.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
             d_loss = (real_loss + fake_loss) / 2
 
-            # d_loss.backward(retain_graph=True)
+            # d_loss.backward(retain_graph=True) # 详见 https://blog.csdn.net/qxqsunshine/article/details/82973979
             d_loss.backward()
             optim_D.step()
 
