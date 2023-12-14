@@ -138,10 +138,6 @@ def train_loops(args, dataset, generator, discriminator,
                 writer.add_images('output', g_output_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
 
 
-            # # current model save
-            # if batch_num % (args.save_batch) == 0:
-            #     torch.save(generator.state_dict(), './save_model/generator_'+ str(batch_num) +'.pth')
-            #     print("saved current metric model in ", batch_num)
 
             ########## validation of generator ##########
             if batch_num % (args.val_batch) == 0:
@@ -176,8 +172,8 @@ def train_loops(args, dataset, generator, discriminator,
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/imgs', help='input RGB or Gray image path')
-parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
+parser.add_argument('--image_dir', type=str, default='./data/Data_Pork/imgs', help='input RGB or Gray image path')
+parser.add_argument('--mask_dir', type=str, default='./data/Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
 parser.add_argument('--lrG', type=float, default='0.0006', help='learning rate')
