@@ -95,7 +95,6 @@ def objective(trial):
 
     print(f"Start training for this trial: {trial.number}")
 
-
     best_metric_trial = -100 # best metric for current trial
 
     for epoch in range(args.epoch): # epoch会始终保持0,因为optuna内核
