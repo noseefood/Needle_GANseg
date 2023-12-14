@@ -2,7 +2,6 @@
 # -*- encoding: utf-8 -*-
 '''
 based on optuna AutoML framework
-include checkpoint and early stopping
 '''
 import json
 import argparse
@@ -10,7 +9,9 @@ import os
 import logging
 import sys
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
+# from tqdm import tqdm_notebook as tqdm  # for colab
+from tqdm.notebook import trange, tqdm
 
 import torch
 import torchvision
@@ -45,8 +46,8 @@ def objective(trial):
 
     # other hyperparameters that are not tuned
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/imgs', help='input RGB or Gray image path')
-    parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
+    parser.add_argument('--image_dir', type=str, default='./data/Data_Pork/imgs', help='input RGB or Gray image path')
+    parser.add_argument('--mask_dir', type=str, default='./data/Data_Pork/masks', help='input mask path')
     parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
@@ -59,14 +60,14 @@ def objective(trial):
     batch_size = trial.suggest_int("batch_size", 4, 16,step=4)
 
     lr_G = trial.suggest_float("lr_G", 5e-4, 1e-2, log=True)  # 注意所有参数在trial中一旦确定无法更改-覆盖!!!
-    lr_D = trial.suggest_float("lr_D", 1e-4, 1e-3, log=True) 
+    lr_D = trial.suggest_float("lr_D", 1e-4, 3e-3, log=True) 
 
-    adv_ratio = trial.suggest_float("adv_ratio", 0.1, 0.5, step=0.1)
+    adv_ratio = trial.suggest_float("adv_ratio", 0.1, 0.8, step=0.1)
     seg_ratio = trial.suggest_float("seg_ratio", 0.5, 1.0, step=0.1)
-    con_ratio = trial.suggest_float("con_ratio", 0.1, 0.5, step=0.1)
+    con_ratio = trial.suggest_float("con_ratio", 0.1, 0.8, step=0.1)
 
     # parepare data
-    dataset = SegmentationDataset(args.image_dir, args.mask_dir) 
+    dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=256) 
     length =  dataset.num_of_samples()
     train_size = int(0.8 * length) 
     train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)]) # manual_seed fixed
@@ -96,7 +97,7 @@ def objective(trial):
     for epoch in range(args.epoch): # epoch会始终保持0,因为optuna内核
 
         len_minibatch = dataloader_train.__len__()
-        pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial')
+        pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial') 
         
         for i_batch, sample_batched in enumerate(dataloader_train):  # i_batch: steps
             
@@ -180,7 +181,6 @@ if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(),
                                 study_name="SegGAN", storage=storage_name, load_if_exists=True) # optuna的搜索过程其实也可以通过指定随机种子来固定,但我们这里没有必要
     study.optimize(objective, n_trials=100) # n_trials: number of trials from different hyperparameters
-    # 断点之后即使到达到最大n_trials,调大就可以继续搜索
 
     print("Best trial:")
     trial = study.best_trial

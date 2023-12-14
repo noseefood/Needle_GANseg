@@ -67,7 +67,7 @@ def objective(trial):
     con_ratio = trial.suggest_float("con_ratio", 0.1, 0.8, step=0.1)
 
     # parepare data
-    dataset = SegmentationDataset(args.image_dir, args.mask_dir) 
+    dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=256) 
     length =  dataset.num_of_samples()
     train_size = int(0.8 * length) 
     train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)]) # manual_seed fixed

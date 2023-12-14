@@ -131,10 +131,6 @@ def objective(trial):
 
             g_loss.backward()
             optim_G.step()
-
-            # print("loss_adv_", loss_adv_.item())
-            # print("loss_seg_", loss_seg_.item())
-            # print("loss_con", loss_con.item())
             # ---------------------
             #  Train Discriminator
             # ---------------------
@@ -154,7 +150,6 @@ def objective(trial):
                 img, mask = sample_batched['image'], sample_batched['mask']
                 mask = mask.to(device).float() # ([8, 1, 512, 512])
                 img = img.to(device) 
-
                 g_output = generator(img) # ([8, 1, 512, 512])
                 # g_output = tf(g_output)  #
                 dice_cof, _ = metric_val(y_pred=g_output, y=mask) # y_pred自动经过sigmoid函数然后计算dice,实际部署中最后输出也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!

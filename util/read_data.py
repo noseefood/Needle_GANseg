@@ -9,7 +9,8 @@ import albumentations as A
 random.seed(777)
 
 class SegmentationDataset(object):
-    def __init__(self, image_dir, mask_dir):
+    def __init__(self, image_dir, mask_dir, resolution=256):
+        self.resolution = resolution
         self.images = []
         self.masks = []
         files = os.listdir(image_dir)
@@ -34,7 +35,7 @@ class SegmentationDataset(object):
         # A.RandomCrop(256, 256, p=0.3), # 不能用，回导致负样本过大直接没有针了
         # A.CenterCrop(384, 384, p=0.3), # 不能用，回导致负样本过大直接没有针了
         self.transform = A.Compose([    # water
-                    A.Resize(256, 256),
+                    A.Resize(self.resolution, self.resolution),
                     A.HorizontalFlip(p=0.3),
                     A.VerticalFlip(p=0.3),
                     A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),

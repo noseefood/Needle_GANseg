@@ -36,8 +36,6 @@ torch.manual_seed(777)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-
-
 def train_loops(args, dataset, generator, discriminator, 
                 optim_G, optim_D, loss_adv, loss_seg, metric_val):
     # split train and val dataset
