@@ -42,6 +42,8 @@ best_metric = -100
 
 def objective(trial):
     ''' Objective function for AutoML, trial is the hyperparameter needed to be tuned '''
+    
+    global best_metric  # global variable for all trials
 
     # other hyperparameters that are not tuned
     parser = argparse.ArgumentParser()
@@ -56,7 +58,7 @@ def objective(trial):
     args = parser.parse_args()
 
     # hyperparameters that are tuned
-    batch_size = trial.suggest_int("batch_size", 8, 16,step=4)
+    batch_size = trial.suggest_int("batch_size", 4, 8,step=4)
 
     lr_G = trial.suggest_float("lr_G", 5e-4, 1e-2, log=True)  # 注意所有参数在trial中一旦确定无法更改-覆盖!!!
     lr_D = trial.suggest_float("lr_D", 1e-4, 3e-3, log=True) 
@@ -151,6 +153,9 @@ def objective(trial):
 
 
             ########### validation every epoch ############
+            print(f"current batch_num: {batch_num}")
+            print(f"current g_loss: {g_loss}")
+
             if batch_num % args.val_batch == 0:
                 
                 generator.eval()
@@ -171,7 +176,7 @@ def objective(trial):
                 # update the model for this trial
                 if metric > best_metric_trial: 
                     best_metric_trial = metric
-                    torch.save(generator.state_dict(), f"./save_model/generator_{trial.number}.pth")
+                    torch.save(generator.state_dict(), f"./save_model/generator_{trial.number}_trial.pth")
 
                 # update the best model for all trials
                 if metric > best_metric:
@@ -192,6 +197,7 @@ def objective(trial):
 if __name__ == "__main__":
     # optuna search default using TPESampler
     # Only after some trials have been completed, Optuna uses the TPE algorithm to prune unpromising trials.
+    
 
     storage_name = "sqlite:///optuna.db"
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
