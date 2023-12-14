@@ -52,7 +52,7 @@ def objective(trial):
     parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--epoch", type=int, default=30, help="maximal epoch in training for every trial")
+    parser.add_argument("--epoch", type=int, default=10, help="maximal epoch in training for every trial")
     parser.add_argument("--val_batch", type=int, default=400, help="Every val_batch, do validation")
     # parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
     args = parser.parse_args()

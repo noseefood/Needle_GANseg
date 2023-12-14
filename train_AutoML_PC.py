@@ -31,8 +31,6 @@ from monai.transforms import (
 )
 
 import contextual_loss as cl
-
-import optuna # AutoML framework
 import warnings
 warnings.filterwarnings('ignore') # avoid tensor error
 
@@ -40,7 +38,7 @@ torch.manual_seed(777)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def objective(trial):
+def train(trial):
     ''' Objective function for AutoML, trial is the hyperparameter needed to be tuned '''
 
     # other hyperparameters that are not tuned
@@ -159,29 +157,6 @@ def objective(trial):
         # print("mean dice score: ", metric)
         ######### validation every epoch ############
 
-        # for optuna pruner need
-        trial.report(metric, epoch) #  return the metric every epoch for pruner !
-        if trial.should_prune():
-            raise optuna.TrialPruned()
-
-    return metric # return the final metric to be optimized every epoch(注意return位置,会直接影响到剪枝的效果!!!) 
-
-
 if __name__ == "__main__":
     # optuna search default using TPESampler
     # Only after some trials have been completed, Optuna uses the TPE algorithm to prune unpromising trials.
-    storage_name = "sqlite:///optuna.db"
-    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-    study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(),
-                                study_name="SegGAN", storage=storage_name, load_if_exists=True) # optuna的搜索过程其实也可以通过指定随机种子来固定,但我们这里没有必要
-    study.optimize(objective, n_trials=100) # n_trials: number of trials from different hyperparameters
-    # 断点之后即使到达到最大n_trials,调大就可以继续搜索
-
-    print("Best trial:")
-    trial = study.best_trial
-    print("  Value: ", trial.value)
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
-
-    

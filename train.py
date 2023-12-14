@@ -61,6 +61,9 @@ def train_loops(args, dataset, generator, discriminator,
 
     tf = Compose([Activations(sigmoid=True)])
 
+    best_metric = -100 # best metric for all trials
+    best_metric_batch = -1 # best metric 
+
     # train loop
     for epoch in range(args.epoch):
         for i_batch, sample_batched in enumerate(dataloader_train):  # i_batch: steps
@@ -82,13 +85,7 @@ def train_loops(args, dataset, generator, discriminator,
             optim_G.zero_grad()
 
             g_output = generator(img) 
-            # g_output = F.sigmoid(g_output) # 
-            # print("g_output", g_output.shape) # ([8, 1, 256, 256])
 
-            # Loss measures generator's ability to generate seg mask
-            # loss_seg_ = loss_seg(input=g_output, target=mask) # 
-            # print(metric_val(y_pred=g_output, y=mask)) (tensor([0.0432], device='cuda:0'), tensor([8.], device='cuda:0'))
-            # loss_seg_ = 1 - metric_val(y_pred=g_output, y=mask)[0]
             loss_seg_ = loss_seg(input=g_output, target=mask) # focal loss自带sigmoid
 
             g_output_norm = tf(g_output) # ([8, 1, 256, 256])
@@ -141,11 +138,10 @@ def train_loops(args, dataset, generator, discriminator,
                 writer.add_images('output', g_output_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
 
 
-            # current model save
-            if batch_num % (args.save_batch) == 0:
-
-                torch.save(generator.state_dict(), './save_model/save_G_Exp/generator_'+ str(batch_num) +'.pth')
-                print("saved current metric model in ", batch_num)
+            # # current model save
+            # if batch_num % (args.save_batch) == 0:
+            #     torch.save(generator.state_dict(), './save_model/generator_'+ str(batch_num) +'.pth')
+            #     print("saved current metric model in ", batch_num)
 
             ########## validation of generator ##########
             if batch_num % (args.val_batch) == 0:
@@ -158,7 +154,6 @@ def train_loops(args, dataset, generator, discriminator,
                         img, mask = sample_batched['image'], sample_batched['mask']
                         mask = mask.to(device).float() # ([8, 1, 512, 512])
                         img = img.to(device) 
-
                         g_output = generator(img) # ([8, 1, 512, 512])
                         # g_output = tf(g_output)  #
                         dice_cof, _ = metric_val(y_pred=g_output, y=mask) # y_pred自动经过sigmoid函数然后计算dice,实际部署中最后输出也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
@@ -170,16 +165,13 @@ def train_loops(args, dataset, generator, discriminator,
                 print("mean dice score: ", metric)
 
                 writer.add_scalar("val_mean_dice", metric, epoch * len(dataloader_train) + i_batch)
-                
-            # if batch_num % 1000 == 0 and gamma < gamma_max:
-            #     gamma += 0.01
-            #     print("Current gamma: ", gamma)
-            #     writer.add_scalar("Current gamma decay", gamma, epoch * len(dataloader_train) + i_batch)
 
-        # final model save
-        if epoch == args.epoch - 1:
-            print("final model saved")
-            torch.save(generator.state_dict(), './save_model/save_G_Exp/final_generator.pth')
+                # update the best model for all trials
+                if metric > best_metric:
+                    best_metric = metric
+                    best_metric_batch = batch_num
+                    torch.save(generator.state_dict(), f"./save_model/best_model_in{best_metric_batch}.pth")
+                    print("Current best metric: ", metric)
 
 
 
@@ -188,10 +180,10 @@ parser.add_argument('--image_dir', type=str, default='C:\Research\projects\Learn
 parser.add_argument('--mask_dir', type=str, default='C:\Research\projects\Learning\dataset\data_training\Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='0.0008974078986823011', help='learning rate')
-parser.add_argument('--lrD', type=float, default='0.0003082565836123219', help='learning rate') # 
+parser.add_argument('--lrG', type=float, default='0.0006', help='learning rate')
+parser.add_argument('--lrD', type=float, default='0.0002', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
-parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
+parser.add_argument('--batch_size', type=int, default='12', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
@@ -199,20 +191,20 @@ parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
 parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.1, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.3, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.1, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.3, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
 
-os.makedirs('./save_model/save_G_Exp', exist_ok=True)
+os.makedirs('./save_model', exist_ok=True)
 
-with open('./save_model/save_G_Exp/args.txt', 'w') as f:
+with open('./save_model/args.txt', 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 
 
-dataset = SegmentationDataset(args.image_dir, args.mask_dir) 
+dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=512) 
 
 generator = Generator().to(device)   # input channel must be 1
 discriminator = Discriminator().to(device) 
@@ -230,12 +222,14 @@ elif args.optimizer == "SGD":
 
 # define loss
 loss_adv = torch.nn.BCELoss().to(device) # GAN adverserial loss
-# loss_seg = torch.nn.MSELoss().to(device) # 基本的分割loss
 metric_val = monai.metrics.DiceHelper(sigmoid=True)  # DICE score for validation of generator 最终输出的时候也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
+loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
+train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
+
+# loss_seg = torch.nn.MSELoss().to(device) # 基本的分割loss
 # loss_seg = monai.losses.dice.DiceLoss(sigmoid=False)   # DICE loss, sigmoid参数会让输出的值最后经过sigmoid函数,(input,target)
 # loss_seg = monai.losses.Dice(sigmoid=True) 
 # 在BCEWithLogitsLoss这个函数中，拿到output首先会做一个sigmoid操作，再进行二进制交叉熵计算
 # loss_seg = torch.nn.BCEWithLogitsLoss() # BECWithLogitsLoss即是把最后的sigmoid和BCELoss合成一步，效果是一样的
-loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
+# loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
 #!!!!!!!!!!!!!1 FocalLoss的参数不要用默认值(alpha=0.2)，否则根本无法训练
-train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
