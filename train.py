@@ -176,20 +176,20 @@ parser.add_argument('--image_dir', type=str, default='./data/Data_Pork/imgs', he
 parser.add_argument('--mask_dir', type=str, default='./data/Data_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='0.0006', help='learning rate')
-parser.add_argument('--lrD', type=float, default='0.0002', help='learning rate') # 
+parser.add_argument('--lrG', type=float, default='0.0005', help='learning rate')
+parser.add_argument('--lrD', type=float, default='0.0001', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
-parser.add_argument('--batch_size', type=int, default='12', help='batch_size in training')
+parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
 
-parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
+parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
 parser.add_argument("--adv_ratio", type=float, default=0.3, help="Ratio of adverserial loss in generator loss") # 0.7
-parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.3, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--seg_ratio", type=float, default=0.5, help="Ratio of seg loss in generator loss") # 0.3
+parser.add_argument("--con_ratio", type=float, default=0.8, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
@@ -200,7 +200,7 @@ with open('./save_model/args.txt', 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 
 
-dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=512) 
+dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=512)  # 512*512 discriminator also need this size
 
 generator = Generator().to(device)   # input channel must be 1
 discriminator = Discriminator().to(device) 
