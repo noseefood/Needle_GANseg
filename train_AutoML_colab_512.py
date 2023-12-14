@@ -9,8 +9,6 @@ import os
 import logging
 import sys
 import numpy as np
-# from tqdm import tqdm
-# from tqdm import tqdm_notebook as tqdm  # for colab
 from tqdm.notebook import trange, tqdm
 
 import torch
@@ -40,6 +38,7 @@ warnings.filterwarnings('ignore') # avoid tensor error
 torch.manual_seed(777)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+best_metric = -100
 
 def objective(trial):
     ''' Objective function for AutoML, trial is the hyperparameter needed to be tuned '''
@@ -52,12 +51,12 @@ def objective(trial):
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--epoch", type=int, default=30, help="maximal epoch in training for every trial")
-    # parser.add_argument("--val_batch", type=int, default=200, help="Every val_batch, do validation")
+    parser.add_argument("--val_batch", type=int, default=400, help="Every val_batch, do validation")
     # parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
     args = parser.parse_args()
 
     # hyperparameters that are tuned
-    batch_size = trial.suggest_int("batch_size", 4, 16,step=4)
+    batch_size = trial.suggest_int("batch_size", 8, 16,step=4)
 
     lr_G = trial.suggest_float("lr_G", 5e-4, 1e-2, log=True)  # 注意所有参数在trial中一旦确定无法更改-覆盖!!!
     lr_D = trial.suggest_float("lr_D", 1e-4, 3e-3, log=True) 
@@ -67,7 +66,7 @@ def objective(trial):
     con_ratio = trial.suggest_float("con_ratio", 0.1, 0.8, step=0.1)
 
     # parepare data
-    dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=256) 
+    dataset = SegmentationDataset(args.image_dir, args.mask_dir, resolution=512) 
     length =  dataset.num_of_samples()
     train_size = int(0.8 * length) 
     train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)]) # manual_seed fixed
@@ -93,15 +92,22 @@ def objective(trial):
     # training
     batch_num = 0
     metric = 0
-    
-    for epoch in range(args.epoch): # epoch会始终保持0,因为optuna内核
 
-        len_minibatch = dataloader_train.__len__()
-        pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial') 
+    print(f"Start training for this trial: {trial.number}")
+
+
+    best_metric_trial = -100 # best metric for current trial
+
+    for epoch in range(args.epoch): # epoch会始终保持0,因为optuna内核
+        
+        print(f"Start epoch {epoch}")    
+
+        # len_minibatch = dataloader_train.__len__()
+        # pbar = tqdm(total=len_minibatch, desc='Processing for this epoch in current trial') 
         
         for i_batch, sample_batched in enumerate(dataloader_train):  # i_batch: steps
             
-            pbar.update(1)
+            # pbar.update(1)
             batch_num += 1 
 
             # load data
@@ -133,9 +139,6 @@ def objective(trial):
             g_loss.backward()
             optim_G.step()
 
-            # print("loss_adv_", loss_adv_.item())
-            # print("loss_seg_", loss_seg_.item())
-            # print("loss_con", loss_con.item())
             # ---------------------
             #  Train Discriminator
             # ---------------------
@@ -147,28 +150,42 @@ def objective(trial):
             d_loss.backward(retain_graph=True)
             optim_D.step()
 
-        ########### validation every epoch ############
-        generator.eval()
-        val_scores = []    
-        with torch.no_grad():
-            for i_batch_val, sample_batched in enumerate(dataloader_val):  # i_batch: steps
-                img, mask = sample_batched['image'], sample_batched['mask']
-                mask = mask.to(device).float() # ([8, 1, 512, 512])
-                img = img.to(device) 
 
-                g_output = generator(img) # ([8, 1, 512, 512])
-                # g_output = tf(g_output)  #
-                dice_cof, _ = metric_val(y_pred=g_output, y=mask) # y_pred自动经过sigmoid函数然后计算dice,实际部署中最后输出也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
-                val_scores.append(dice_cof.cpu().numpy())
+            ########### validation every epoch ############
+            if batch_num % args.val_batch == 0:
+                
+                generator.eval()
+                val_scores = []    
+                with torch.no_grad():
+                    for i_batch_val, sample_batched in enumerate(dataloader_val):  # i_batch: steps
+                        img, mask = sample_batched['image'], sample_batched['mask']
+                        mask = mask.to(device).float() # ([8, 1, 512, 512])
+                        img = img.to(device) 
 
-        metric = np.mean(val_scores) # update newest metric
-        # print("mean dice score: ", metric)
-        ######### validation every epoch ############
+                        g_output = generator(img) # ([8, 1, 512, 512])
 
-        # for optuna pruner need
-        trial.report(metric, epoch) #  return the metric every epoch for pruner !
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+                        dice_cof, _ = metric_val(y_pred=g_output, y=mask) # y_pred自动经过sigmoid函数然后计算dice,实际部署中最后输出也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
+                        val_scores.append(dice_cof.cpu().numpy())
+
+                metric = np.mean(val_scores) # metric
+
+                # update the model for this trial
+                if metric > best_metric_trial: 
+                    best_metric_trial = metric
+                    torch.save(generator.state_dict(), f"./save_model/generator_{trial.number}.pth")
+
+                # update the best model for all trials
+                if metric > best_metric:
+                    best_metric = metric
+                    torch.save(generator.state_dict(), f"./save_model/best_model_in{trial.number}.pth")
+                    print("best metric: ", metric)
+
+
+                # for optuna pruner need
+                trial.report(metric, args.val_batch) #  return the metric every epoch for pruner !
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
+    
 
     return metric # return the final metric to be optimized every epoch(注意return位置,会直接影响到剪枝的效果!!!) 
 
@@ -176,6 +193,7 @@ def objective(trial):
 if __name__ == "__main__":
     # optuna search default using TPESampler
     # Only after some trials have been completed, Optuna uses the TPE algorithm to prune unpromising trials.
+
     storage_name = "sqlite:///optuna.db"
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
     study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(),

@@ -33,7 +33,7 @@ class Discriminator(nn.Module):
         )
 
         # The height and width of downsampled image(final dense layer)
-        ds_size = 256 // 2 ** 4 # 256 is the original size of image(after resize)
+        ds_size = 512 // 2 ** 4 # 256/512 is the original size of image(after resize)
         self.adv_layer = nn.Sequential(nn.Linear(128 * ds_size ** 2, 1), nn.Sigmoid()) # Sigmoid necessary?
 
 
