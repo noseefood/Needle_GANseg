@@ -43,8 +43,8 @@ def train_loops(args, dataset, generator, discriminator,
     train_size = int(0.8 * length) 
     train_set, validate_set = torch.utils.data.random_split(dataset,[train_size,(length-train_size)]) # manual_seed fixed
 
-    dataloader_train = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, pin_memory=torch.cuda.is_available())
-    dataloader_val = DataLoader(validate_set, batch_size=args.batch_size, shuffle=False, pin_memory=torch.cuda.is_available())
+    dataloader_train = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
+    dataloader_val = DataLoader(validate_set, batch_size=args.batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
 
     # define tensorboard writer
     writer = SummaryWriter()
@@ -187,9 +187,9 @@ parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
 parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.3, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.4, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=0.5, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.8, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.4, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
