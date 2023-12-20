@@ -4,10 +4,11 @@ import torch.nn as nn
 Reference: https://github.com/eriklindernoren/PyTorch-GAN/blob/master/implementations/cyclegan/models.py
            https://github.com/eriklindernoren/PyTorch-GAN/blob/master/implementations/dcgan/dcgan.py  (original version from this repo)
 Specialization: 
-1. Using nn.LeakyReLU instead of nn.ReLU
-2. BatchNorm2d used in discriminator
+1. Using nn.LeakyReLU instead of nn.ReLU 
+2. nn.LeakyReLU and nn.BatchNorm2d 
+all in paper UNSUPERVISED REPRESENTATION LEARNING WITH DEEP CONVOLUTIONAL GENERATIVE ADVERSARIAL NETWORKS
 '''
-"v2 Version"
+
 
 class Discriminator(nn.Module):
     def __init__(self):
@@ -15,17 +16,24 @@ class Discriminator(nn.Module):
         
 
         def discriminator_block(in_filters, out_filters, normalize=True, dropout=True):
+            
+            # -> CONV/FC -> BatchNorm -> ReLu(or other activation) -> Dropout
 
-            block = [nn.Conv2d(in_filters, out_filters, kernel_size=3, stride=2, padding=1), nn.LeakyReLU(0.2, inplace=True)]
-
-            if dropout:
-                block.append(nn.Dropout2d(0.25))
+            block = [nn.Conv2d(in_filters, out_filters, kernel_size=3, stride=2, padding=1)]
 
             if normalize:
-                block.append(nn.BatchNorm2d(out_filters, 0.8))
+                block.append(nn.BatchNorm2d(out_filters)) 
+
+            block.append(nn.LeakyReLU(0.2, inplace=True))
+
+            if dropout: 
+                block.append(nn.Dropout2d(0.25))
+
             return block
 
         self.model = nn.Sequential(
+            # BN is not used in the first layer of discriminator 
+            # UNSUPERVISED REPRESENTATION LEARNING WITH DEEP CONVOLUTIONAL GENERATIVE ADVERSARIAL NETWORKS
             *discriminator_block(1, 16, normalize=False),  # Only single channel Gray scale img
             *discriminator_block(16, 32),
             *discriminator_block(32, 64),

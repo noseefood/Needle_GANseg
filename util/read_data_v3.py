@@ -7,6 +7,7 @@ import random
 import albumentations as A  
 
 random.seed(777)
+np.random.seed(777)
 
 class SegmentationDataset(object):
     def __init__(self, image_dir, mask_dir, resolution=256):

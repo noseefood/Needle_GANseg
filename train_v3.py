@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 '''
-@File    :   train_NewFramework.py
-@Time    :   2023/10/04 17:55:38
+@File    :   train_v3.py
+@Time    :   2023/12/17 17:55:38
 @Author  :   Xuesong Li
-@Version :   1.0
+@Version :   3.0
 @Contact :   xuesosng.li@tum.de
 '''
 import json
@@ -16,10 +16,10 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
-from util.read_data import SegmentationDataset
+from util.read_data_v3 import SegmentationDataset
 
 from model.Generator import Generator 
-from model.Discriminator import Discriminator
+from model.Discriminator_v3 import Discriminator # third version
 
 import numpy as np
 import monai
@@ -31,8 +31,12 @@ from monai.transforms import (
 )
 
 import contextual_loss as cl
+import random
 
 torch.manual_seed(777)
+np.random.seed(777)
+random.seed(777)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -172,26 +176,24 @@ def train_loops(args, dataset, generator, discriminator,
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--image_dir', type=str, default='./data/Data_Pork/imgs', help='input RGB or Gray image path')
-parser.add_argument('--mask_dir', type=str, default='./data/Data_Pork/masks', help='input mask path')
-# parser.add_argument('--image_dir', type=str, default='./data/Basic_Pork/imgs', help='input RGB or Gray image path')
-# parser.add_argument('--mask_dir', type=str, default='./data/Basic_Pork/masks', help='input mask path')
+parser.add_argument('--image_dir', type=str, default='./data/Basic_Pork/imgs', help='input RGB or Gray image path')
+parser.add_argument('--mask_dir', type=str, default='./data/Basic_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='0.0006', help='learning rate')
-parser.add_argument('--lrD', type=float, default='0.0001', help='learning rate') # 
+parser.add_argument('--lrG', type=float, default='3e-4', help='learning rate')
+parser.add_argument('--lrD', type=float, default='5e-5', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
 parser.add_argument('--batch_size', type=int, default='4', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-parser.add_argument("--epoch", type=int, default=500, help="epoch in training")
+parser.add_argument("--epoch", type=int, default=50, help="epoch in training")
 
 parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.3, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=0.8, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.6, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.4, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
@@ -223,11 +225,4 @@ loss_adv = torch.nn.BCELoss().to(device) # GAN adverserial loss
 metric_val = monai.metrics.DiceHelper(sigmoid=True)  # DICE score for validation of generator 最终输出的时候也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
 loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
 train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
-
-# loss_seg = torch.nn.MSELoss().to(device) # 基本的分割loss
-# loss_seg = monai.losses.dice.DiceLoss(sigmoid=False)   # DICE loss, sigmoid参数会让输出的值最后经过sigmoid函数,(input,target)
-# loss_seg = monai.losses.Dice(sigmoid=True) 
-# 在BCEWithLogitsLoss这个函数中，拿到output首先会做一个sigmoid操作，再进行二进制交叉熵计算
-# loss_seg = torch.nn.BCEWithLogitsLoss() # BECWithLogitsLoss即是把最后的sigmoid和BCELoss合成一步，效果是一样的
-# loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
 #!!!!!!!!!!!!!1 FocalLoss的参数不要用默认值(alpha=0.2)，否则根本无法训练
