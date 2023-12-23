@@ -33,8 +33,8 @@ class SegmentationDataset(object):
         #             # A.PiecewiseAffine(p=0.2, scale=(0.03, 0.04), nb_rows=(4, 4), nb_cols=(4, 4)),  # new feature colab not support...
         #             # A.ShiftScaleRotate(p=0.3, shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, border_mode=cv.BORDER_CONSTANT, value=0, mask_value=0),
         #         ])
-        # A.RandomCrop(256, 256, p=0.3), # 不能用，回导致负样本过大直接没有针了
-        # A.CenterCrop(384, 384, p=0.3), # 不能用，回导致负样本过大直接没有针了
+        # A.RandomCrop(256, 256, p=0.3), # 不能用，会导致负样本过大直接没有针了
+        # A.CenterCrop(384, 384, p=0.3), # 不能用，会导致负样本过大直接没有针了
         self.transform = A.Compose([    # water
                     A.Resize(self.resolution, self.resolution),
                     A.HorizontalFlip(p=0.3),
