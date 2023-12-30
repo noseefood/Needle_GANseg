@@ -41,7 +41,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_loops(args, dataset, generator, discriminator, 
-                optim_G, optim_D, loss_adv, loss_seg, metric_val):
+                optim_G, optim_D, loss_adv, loss_seg, metric_val, scheduler_G):
     # split train and val dataset
     length =  dataset.num_of_samples()
     train_size = int(0.8 * length) 
@@ -133,6 +133,9 @@ def train_loops(args, dataset, generator, discriminator,
             writer.add_scalar('D_loss', d_loss.item(), epoch * len(dataloader_train) + i_batch)
             writer.add_scalar('G_loss', g_loss.item(), epoch * len(dataloader_train) + i_batch)
 
+            # write lr into tensorboard
+            writer.add_scalar('lr_G', optim_G.param_groups[0]['lr'], epoch * len(dataloader_train) + i_batch)
+
             if batch_num % 150 == 0:
                 img_grid = torchvision.utils.make_grid(img, nrow=3, padding=2, normalize=False, value_range=None, scale_each=False, pad_value=0)
                 writer.add_images('input', img_grid, epoch * len(dataloader_train) + i_batch, dataformats='CHW')
@@ -173,6 +176,10 @@ def train_loops(args, dataset, generator, discriminator,
                     torch.save(generator.state_dict(), f"./save_model/best_model_in{best_metric_batch}.pth")
                     print("Current best metric: ", metric)
 
+        scheduler_G.step() # learning rate decay count
+
+                
+
 
 
 parser = argparse.ArgumentParser()
@@ -183,17 +190,17 @@ parser.add_argument('--split_ratio', type=float, default='0.8', help='train and 
 parser.add_argument('--lrG', type=float, default='3e-4', help='learning rate')
 parser.add_argument('--lrD', type=float, default='5e-5', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
-parser.add_argument('--batch_size', type=int, default='4', help='batch_size in training')
+parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-parser.add_argument("--epoch", type=int, default=50, help="epoch in training")
+parser.add_argument("--epoch", type=int, default=100, help="epoch in training")
 
 parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.3, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=0.8, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.4, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.2, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
@@ -219,10 +226,19 @@ elif args.optimizer == "Adam":
 elif args.optimizer == "SGD":
     optim_G = torch.optim.SGD(generator.parameters(), lr=args.lrG, momentum=0.9)
     optim_D = torch.optim.SGD(discriminator.parameters(), lr=args.lrD, momentum=0.9)
+    
+
+############# learning rate decay #############
+# scheduler_G = torch.optim.lr_scheduler.StepLR(optim_G, step_size=4, gamma=0.5) # step_size 
+scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[4, 12, 24, 36], gamma=0.5) # step_size
+###############################################
 
 # define loss
 loss_adv = torch.nn.BCELoss().to(device) # GAN adverserial loss
 metric_val = monai.metrics.DiceHelper(sigmoid=True)  # DICE score for validation of generator 最终输出的时候也应该经过sigmoid函数!!!!!!!!!!!!!!!!!!!!!!
 loss_seg =  monai.losses.FocalLoss(alpha=0.75, gamma=2.0).to(device) # FocalLoss is an extension of BCEWithLogitsLoss, so sigmoid is not needed.
-train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val)
+
+
+
+train_loops(args, dataset, generator, discriminator, optim_G, optim_D, loss_adv, loss_seg, metric_val, scheduler_G)
 #!!!!!!!!!!!!!1 FocalLoss的参数不要用默认值(alpha=0.2)，否则根本无法训练
