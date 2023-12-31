@@ -23,28 +23,15 @@ class SegmentationDataset(object):
             self.masks.append(mask_file)
 
         # augmentation
-        # self.transform = A.Compose([
-        #             A.HorizontalFlip(p=0.3),
-        #             A.VerticalFlip(p=0.3),
-        #             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.3),
-        #             A.GaussNoise(p=0.2),
-        #             # A.CLAHE(p=0.2), # Contrast Limited Adaptive Histogram Equalization
-        #             A.GaussianBlur(p=0.2),
-        #             # A.PiecewiseAffine(p=0.2, scale=(0.03, 0.04), nb_rows=(4, 4), nb_cols=(4, 4)),  # new feature colab not support...
-        #             # A.ShiftScaleRotate(p=0.3, shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, border_mode=cv.BORDER_CONSTANT, value=0, mask_value=0),
-        #         ])
         # A.RandomCrop(256, 256, p=0.3), # 不能用，回导致负样本过大直接没有针了
         # A.CenterCrop(384, 384, p=0.3), # 不能用，回导致负样本过大直接没有针了
         self.transform = A.Compose([    # water
                     A.Resize(self.resolution, self.resolution),
                     A.HorizontalFlip(p=0.3),
-                    A.VerticalFlip(p=0.3),
-                    # A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
                     A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.3),
                     A.GaussNoise(p=0.2),
                     A.GaussianBlur(p=0.2),
                 ])
-        # Normalize ???
 
     def __len__(self):
         return len(self.images)
