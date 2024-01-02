@@ -60,7 +60,7 @@ def train_loops(args, dataset, generator, discriminator,
     '''lower band_width value would make the similarity function sharper, making the loss more sensitive 
     to differences between features. In contrast, a higher band_width value would make the similarity function 
     smoother, making the loss less sensitive to differences between features.'''
-    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.3).to(device) 
+    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.5).to(device) 
 
     args_dict = args.__dict__
     writer.add_hparams(args_dict, {})
@@ -72,7 +72,7 @@ def train_loops(args, dataset, generator, discriminator,
 
 
     # generator load pretrained model that only using focal and contextual loss
-    generator.load_state_dict(torch.load('.pth')) # 
+    generator.load_state_dict(torch.load('./FirstStage.pth')) #  # best_in8200_FirstStage
 
     # train loop
     for epoch in range(args.epoch):
@@ -192,7 +192,7 @@ parser.add_argument('--image_dir', type=str, default='./data/Basic_Pork/imgs', h
 parser.add_argument('--mask_dir', type=str, default='./data/Basic_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='3e-4', help='learning rate')
+parser.add_argument('--lrG', type=float, default='3e-5', help='learning rate')
 parser.add_argument('--lrD', type=float, default='5e-5', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
 parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
@@ -204,7 +204,7 @@ parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch,
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
 parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss") # 0.7
-parser.add_argument("--seg_ratio", type=float, default=0.8, help="Ratio of seg loss in generator loss") # 0.3
+parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
 parser.add_argument("--con_ratio", type=float, default=0.2, help="Ratio of contextual loss in generator loss") # 0.2
 
 # two stage training
@@ -238,7 +238,7 @@ elif args.optimizer == "SGD":
 
 ############# learning rate decay #############
 # scheduler_G = torch.optim.lr_scheduler.StepLR(optim_G, step_size=4, gamma=0.5) # step_size 
-scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[4, 12, 24, 48], gamma=0.5) # step_size
+scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[8, 16, 32], gamma=0.5) # step_size
 ###############################################
 
 # define loss

@@ -58,7 +58,6 @@ def train_loops(args, dataset, generator, optim_G, loss_seg, metric_val, schedul
     '''lower band_width value would make the similarity function sharper, making the loss more sensitive 
     to differences between features. In contrast, a higher band_width value would make the similarity function 
     smoother, making the loss less sensitive to differences between features.'''
-    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.3).to(device) 
 
     args_dict = args.__dict__
     writer.add_hparams(args_dict, {})
@@ -88,21 +87,13 @@ def train_loops(args, dataset, generator, optim_G, loss_seg, metric_val, schedul
 
             loss_seg_ = loss_seg(input=g_output, target=mask) # focal loss自带sigmoid
 
-            g_output_norm = post_processing(g_output) # ([8, 1, 256, 256])
-            # Loss measures generator's ability to fool the discriminator
-            # contextual loss, VCG16 need 3 channels
-            pred_3C = torch.cat((g_output_norm, g_output_norm, g_output_norm), dim=1)
-            mask_3C = torch.cat((mask, mask, mask), dim=1)
-            loss_con = Context_crit(pred_3C, mask_3C)
-
-            g_loss = args.seg_ratio * loss_seg_ + args.con_ratio * loss_con
+            g_loss = loss_seg_ 
 
             # g_loss.backward(retain_graph=True) # 详见 https://blog.csdn.net/qxqsunshine/article/details/82973979
             g_loss.backward()
             optim_G.step()
 
             print("loss_seg_", loss_seg_.item())
-            print("loss_con", loss_con.item())
 
 
             print(
@@ -176,7 +167,6 @@ parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch,
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
 parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.4, help="Ratio of contextual loss in generator loss") # 0.2
 
 args = parser.parse_args()
 print('args', args)
@@ -203,7 +193,7 @@ elif args.optimizer == "SGD":
 
 ############# learning rate decay #############
 # scheduler_G = torch.optim.lr_scheduler.StepLR(optim_G, step_size=4, gamma=0.5) # step_size 
-scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[4, 12, 24, 48], gamma=0.5) # step_size
+scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[8, 16, 32], gamma=0.5) # step_size
 ###############################################
 
 # define loss
