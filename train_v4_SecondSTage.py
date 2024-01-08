@@ -60,7 +60,7 @@ def train_loops(args, dataset, generator, discriminator,
     '''lower band_width value would make the similarity function sharper, making the loss more sensitive 
     to differences between features. In contrast, a higher band_width value would make the similarity function 
     smoother, making the loss less sensitive to differences between features.'''
-    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.5).to(device) 
+    Context_crit = cl.ContextualLoss(use_vgg=True, vgg_layer='relu5_4',band_width=0.8).to(device) 
 
     args_dict = args.__dict__
     writer.add_hparams(args_dict, {})
@@ -176,11 +176,14 @@ def train_loops(args, dataset, generator, discriminator,
                 writer.add_scalar("val_mean_dice", metric, epoch * len(dataloader_train) + i_batch)
 
                 # update the best model for all trials
-                if metric > best_metric:
-                    best_metric = metric
-                    best_metric_batch = batch_num
-                    torch.save(generator.state_dict(), f"./save_model/best_model_in{best_metric_batch}.pth")
-                    print("Current best metric: ", metric)
+                # if metric > 0.8:
+                #     best_metric = metric
+                #     best_metric_batch = batch_num
+                #     torch.save(generator.state_dict(), f"./save_model/best_model_in{best_metric_batch}.pth")
+                #     print("Current best metric: ", metric)
+
+            if batch_num % (args.save_batch) == 0:
+                torch.save(generator.state_dict(), f"./save_model/model_in{batch_num}.pth")
 
         scheduler_G.step() # learning rate decay count
 
@@ -193,7 +196,7 @@ parser.add_argument('--mask_dir', type=str, default='./data/Basic_Pork/masks', h
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
 parser.add_argument('--lrG', type=float, default='3e-5', help='learning rate')
-parser.add_argument('--lrD', type=float, default='5e-5', help='learning rate') # 
+parser.add_argument('--lrD', type=float, default='1e-5', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
 parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
 parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
