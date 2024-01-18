@@ -197,9 +197,9 @@ parser.add_argument("--epoch", type=int, default=100, help="epoch in training")
 parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.2, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.002, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
-parser.add_argument("--con_ratio", type=float, default=0.2, help="Ratio of contextual loss in generator loss") # 0.2
+parser.add_argument("--con_ratio", type=float, default=0.001, help="Ratio of contextual loss in generator loss") # 0.2
 
 
 args = parser.parse_args()
@@ -230,7 +230,7 @@ elif args.optimizer == "SGD":
 
 ############# learning rate decay #############
 # scheduler_G = torch.optim.lr_scheduler.StepLR(optim_G, step_size=4, gamma=0.5) # step_size 
-scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[8, 16, 32], gamma=0.5) # step_size
+scheduler_G = torch.optim.lr_scheduler.MultiStepLR(optim_G, milestones=[12, 24, 48], gamma=0.5) # step_size
 ###############################################
 
 # define loss
