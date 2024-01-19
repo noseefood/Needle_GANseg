@@ -108,7 +108,7 @@ def train_loops(args, dataset, generator, discriminator,
 
             real_loss = loss_adv(discriminator(mask), valid) # 能不能区分出真实的mask 二分类交叉熵 BCELoss
             # detach()很重要，因为generator的梯度不需要传到discriminator!
-            fake_loss = loss_adv(discriminator(g_output_norm.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
+            fake_loss = loss_adv(discriminator(g_pred.detach()), fake)  # 能不能区分出虚假的mask 二分类交叉熵 BCELoss
             d_loss = real_loss + fake_loss
 
             # d_loss.backward(retain_graph=True) # 详见 https://blog.csdn.net/qxqsunshine/article/details/82973979
@@ -170,7 +170,7 @@ def train_loops(args, dataset, generator, discriminator,
                 if metric > best_metric:
                     best_metric = metric
                     best_metric_batch = batch_num
-                    torch.save(model.state_dict(), './save_model/best_metric_model_Generator' + str(round(metric, 2)) +'.pth')
+                    torch.save(generator.state_dict(), './save_model/best_metric_model_Generator' + str(round(metric, 2)) + 'inbatch' + str(batch_num) +'.pth')
                     print('saved new best metric model')
                 else:
                     print('not saved new best metric model')
@@ -186,7 +186,7 @@ parser.add_argument('--image_dir', type=str, default='./data/Basic_Pork/imgs', h
 parser.add_argument('--mask_dir', type=str, default='./data/Basic_Pork/masks', help='input mask path')
 parser.add_argument('--split_ratio', type=float, default='0.8', help='train and val split ratio')
 
-parser.add_argument('--lrG', type=float, default='3e-5', help='learning rate')
+parser.add_argument('--lrG', type=float, default='5e-5', help='learning rate')
 parser.add_argument('--lrD', type=float, default='1e-5', help='learning rate') # 
 parser.add_argument('--optimizer', type=str, default='Adam', help='RMSprop/Adam/SGD')
 parser.add_argument('--batch_size', type=int, default='8', help='batch_size in training')
@@ -197,7 +197,7 @@ parser.add_argument("--epoch", type=int, default=100, help="epoch in training")
 parser.add_argument("--val_batch", type=int, default=100, help="Every val_batch, do validation")
 parser.add_argument("--save_batch", type=int, default=500, help="Every val_batch, do saving model")
 
-parser.add_argument("--adv_ratio", type=float, default=0.002, help="Ratio of adverserial loss in generator loss") # 0.7
+parser.add_argument("--adv_ratio", type=float, default=0.1, help="Ratio of adverserial loss in generator loss") # 0.7
 parser.add_argument("--seg_ratio", type=float, default=1, help="Ratio of seg loss in generator loss") # 0.3
 parser.add_argument("--con_ratio", type=float, default=0.001, help="Ratio of contextual loss in generator loss") # 0.2
 
