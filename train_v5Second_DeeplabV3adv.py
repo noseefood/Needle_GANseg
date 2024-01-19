@@ -52,7 +52,7 @@ def train_loops(args, dataset, generator, discriminator,
     best_metric_batch = -1 # best metric 
 
     # generator load pretrained model that only using focal and contextual loss
-    generator.load_state_dict(torch.load('./best_metric_model_Generator0.87.pth')) # 
+    generator.load_state_dict(torch.load('./best_metric_model_DeepLabV3Plus0.86.pth')) # 
 
     # train loop
                   
